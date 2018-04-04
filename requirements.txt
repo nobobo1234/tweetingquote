@@ -1,0 +1,5 @@
+pytz==2017.3
+twython==3.6.0
+requests==2.18.4
+Pillow==5.0.0
+PyYAML==3.12
