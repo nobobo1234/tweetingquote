@@ -1,4 +1,4 @@
-pytz==2017.3
+pytz==2018.9
 twython==3.6.0
 requests==2.21.0
 Pillow==5.0.0
