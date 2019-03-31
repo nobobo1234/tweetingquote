@@ -29,6 +29,7 @@ with requests.Session() as s:
 								headers={"Authorization": f"Client-ID {config['unsplash_client_id']}"})
 	data = r.json()
 	background_image = data["urls"]["raw"] + "&w=1080"
+	photographer = data["user"]["links"]["html"]
 	r = s.get(background_image, stream=True)
 	if r.status_code == 200:
 		i = io.BytesIO()
@@ -63,4 +64,4 @@ final.save('quote.png')
 with open('quote.png', 'rb') as media:
 	response = api.upload_media(media=media)
 	api.update_status(media_ids=[response["media_id"]],
-					status=f"Hello, here's my daily tweet #quote by {author}. {link}")
+					status=f"Hello, here's my daily tweet #quote by {author}. Quote by: {link}. Photo by {photographer}")
