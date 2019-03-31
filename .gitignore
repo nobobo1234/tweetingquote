@@ -1,4 +1,7 @@
 /config.yml
 /bot.py.bak
 /qod.json
-/test.png
+/image.png
+/scenery.png
+/venv/
+/.idea/

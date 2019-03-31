@@ -2,13 +2,14 @@
 
 # Importing every package 
 from twython import Twython
+
 import requests
-import json
+import feedparser
+
 from PIL import ImageFont, Image, ImageDraw
-import textwrap
 from datetime import datetime
 from pytz import timezone
-import calendar
+
 import yaml
 
 # Setup times
@@ -18,85 +19,56 @@ date = now.strftime('%Y-%m-%d')
 time = now.strftime('%H:%M:%S')
 
 # Open config
-config = yaml.load(open('./config.yml', 'r'))
+config = yaml.load(open('./config.yml', 'r'), Loader=yaml.FullLoader)
 
 # Connect to api
-api = Twython(config['consumer_key'],config['consumer_secret'],config['access_token'],config['access_token_secret'])
+api = Twython(
+	config['consumer_key'],
+	config['consumer_secret'],
+	config['access_token'],
+	config['access_token_secret'])
 
 # Getting data from Quote of the Day api
-r = requests.get('http://api.theysaidso.com/qod.json')
-d=r.json()
+data = feedparser.parse('https://www.brainyquote.com/link/quotebr.rss')
+author = data['entries'][0]['title']
+quote = f"{data['entries'][0]['summary']} ~ {author}"
+link = data['entries'][0]['link']
 
+background_request = requests.get('https://api.unsplash.com/photos/random?query=nature',
+								headers={"Authorization": f"Client-ID {config['unsplash_client_id']}"})
+background_data = background_request.json()
+background_image = background_data['urls']['raw'] + "&w=1080"
+r = requests.get(background_image, stream=True)
+if r.status_code == 200:
+	with open('scenery.png', 'wb') as f:
+		for chunk in r:
+			f.write(chunk)
 
-def text2png(text, fullpath, linkback, color = "#000", bgcolor = "#FFF", fontfullpath = None, fontsize = 20, leftpadding = 3, rightpadding = 3, width = 200):
-	NEWLINE_REPLACEMENT_STRING = ' ' + u'\uFFFD' + ' '
+# Making image
+font = ImageFont.truetype('arial.ttf', 30)
 
-	# Add copyright
-	fontlinkback = ImageFont.truetype('arial.ttf', 8)
-	linkbackx = fontlinkback.getsize(linkback)[0]
-	linkback_height = fontlinkback.getsize(linkback)[1]
+image = Image.open("scenery.png").convert("RGBA")
+text = Image.new('RGBA', image.size, color=(0, 0, 0, 0))
+draw = ImageDraw.Draw(image)
+text_draw = ImageDraw.Draw(text)
 
-	# load font
-	font = ImageFont.load_default() if fontfullpath == None else ImageFont.truetype(fontfullpath, fontsize)
-	text = text.replace('\n', NEWLINE_REPLACEMENT_STRING)
+quote_lines = ""
+for i in quote.split(" "):
+	if text_draw.textsize(quote_lines.split("\n")[-1], font=font)[0] > image.width/2:
+		quote_lines += "\n"
+	quote_lines += i + " "
 
-	lines = []
-	line = u""
+# Adding rectangle and quote text
+padding = 10
+w, h = draw.textsize(quote_lines, font=font)
+x, y = ((image.width-w)/2, (image.height-h)/2)
+text_draw.rectangle([(x-padding, y-padding), (x+w+padding, y+h+padding)], fill=(0, 0, 0, 127))
+text_draw.text((x, y), quote_lines, font=font, align="center")
 
-	# Print text to image
-	for word in text.split():
-		if word == u'\uFFFD':
-			lines.append(line[1:])
-			line = u""
-			lines.append( u"" )
-		elif font.getsize( line + ' ' + word )[0] <= (width - rightpadding - leftpadding):
-			line += ' ' + word
-		else: #start a new line
-			lines.append( line[1:] ) #slice the white space in the begining of the line
-			line = u""
+final = Image.alpha_composite(image, text)
+final.save("image.png")
 
-			line += ' ' + word #for now, assume no word alone can exceed the line width
-
-	if len(line) != 0:
-		lines.append( line[1:] ) #add the last line
-
-	line_height = font.getsize(text)[1]
-	img_height = line_height * (len(lines) + 1)
-
-	img = Image.new("RGBA", (width, img_height), bgcolor)
-	draw = ImageDraw.Draw(img)
-
-	y = 0
-	for line in lines:
-		draw.text( (leftpadding, y), line, color, font=font)
-		y += line_height
-
-	# add linkback at the bottom
-	draw.text( (width - linkbackx, img_height - linkback_height), linkback, color, font=fontlinkback)
-
-	img.save(fullpath)
-
-# Prepare the image data
-copyright = d['contents']['copyright']
-def hastagconverter(array):
-	for i in range(len(array)):
-		array[i] = ''.join(('#', array[i]))
-	myString = " ".join(array)
-	return myString
-text=d['contents']['quotes'][0]['quote']
-author = d['contents']['quotes'][0]['author']
-imgtext = text + " ~ " + author
-if "'" in text:
-	text=d['contents']['quotes'][0]['quote'].replace("'", "")
-hashtags = d['contents']['quotes'][0]['tags']
-hasht = hastagconverter(hashtags)
-
-# Run the image drawing function
-text2png(text=imgtext, fullpath='test.png', fontfullpath="arial.ttf", linkback=copyright)
-
-# Open image and upload image to twitter
-photo = open('test.png', 'rb')
+photo = open('image.png', 'rb')
 response = api.upload_media(media=photo)
-
-# Upload to twitter
-api.update_status(media_ids=[response['media_id']], status="Hello, here's my daily tweet #quote. It's " + calendar.day_name[now.weekday()] + " " + hasht)
+api.update_status(media_ids=[response['media_id']],
+				status=f"Hello, here's my daily tweet #quote by {author}. {link}")
