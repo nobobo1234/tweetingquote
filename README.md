@@ -1,4 +1,5 @@
 # Twitter Quote Bot
+Twitterbot that uses Brainyquote and the Twitter API to send quotes with a nice background image to twitter
 
 ## Installing
 Make sure you got python 3.4 or higher installed.
