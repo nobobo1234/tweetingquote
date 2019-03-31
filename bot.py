@@ -6,6 +6,7 @@ import requests
 import feedparser
 from PIL import ImageFont, Image, ImageDraw
 import yaml
+import io
 
 # Open config
 config = yaml.load(open("./config.yml", "r"), Loader=yaml.FullLoader)
@@ -23,20 +24,22 @@ author = data["entries"][0]["title"]
 quote = f"{data['entries'][0]['summary']} ~ {author}"
 link = data["entries"][0]["link"]
 
-background_request = requests.get("https://api.unsplash.com/photos/random?query=nature",
+with requests.Session() as s:
+	r = s.get("https://api.unsplash.com/photos/random?query=nature",
 								headers={"Authorization": f"Client-ID {config['unsplash_client_id']}"})
-background_data = background_request.json()
-background_image = background_data["urls"]["raw"] + "&w=1080"
-r = requests.get(background_image, stream=True)
-if r.status_code == 200:
-	with open("scenery.png", "wb") as f:
+	data = r.json()
+	background_image = data["urls"]["raw"] + "&w=1080"
+	r = s.get(background_image, stream=True)
+	if r.status_code == 200:
+		i = io.BytesIO()
 		for chunk in r:
-			f.write(chunk)
+			i.write(chunk)
+		i.seek(0)
 
 # Making image
 font = ImageFont.truetype("arial.ttf", 30)
 
-image = Image.open("scenery.png").convert("RGBA")
+image = Image.open(i).convert("RGBA")
 text = Image.new("RGBA", image.size, color=(0, 0, 0, 0))
 draw = ImageDraw.Draw(image)
 text_draw = ImageDraw.Draw(text)
@@ -55,9 +58,9 @@ text_draw.rectangle([(x-padding, y-padding), (x+w+padding, y+h+padding)], fill=(
 text_draw.text((x, y), quote_lines, font=font, align="center")
 
 final = Image.alpha_composite(image, text)
-final.save("image.png")
+final.save('quote.png')
 
-photo = open("image.png", "rb")
-response = api.upload_media(media=photo)
-api.update_status(media_ids=[response["media_id"]],
-				status=f"Hello, here's my daily tweet #quote by {author}. {link}")
+with open('quote.png', 'rb') as media:
+	response = api.upload_media(media=media)
+	api.update_status(media_ids=[response["media_id"]],
+					status=f"Hello, here's my daily tweet #quote by {author}. {link}")
