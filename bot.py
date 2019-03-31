@@ -2,21 +2,10 @@
 
 # Importing every package 
 from twython import Twython
-
 import requests
 import feedparser
-
 from PIL import ImageFont, Image, ImageDraw
-from datetime import datetime
-from pytz import timezone
-
 import yaml
-
-# Setup times
-tz = timezone('EST')
-now = datetime.now(tz)
-date = now.strftime('%Y-%m-%d')
-time = now.strftime('%H:%M:%S')
 
 # Open config
 config = yaml.load(open('./config.yml', 'r'), Loader=yaml.FullLoader)
