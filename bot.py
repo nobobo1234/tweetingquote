@@ -28,9 +28,14 @@ with requests.Session() as s:
 	r = s.get("https://api.unsplash.com/photos/random?query=nature",
 								headers={"Authorization": f"Client-ID {config['unsplash_client_id']}"})
 	data = r.json()
-	background_image = data["urls"]["raw"] + "&w=1080"
-	photographer = data["user"]["links"]["html"]
-	r = s.get(background_image, stream=True)
+	photographer = f"{data['user']['links']['html']}?utm_source=Daily%20Quote&utm_medium=referral"
+	unsplash_website = "https://unsplash.com/?utm_source=Daily%20Quote&utm_medium=referral"
+	download_location = data["links"]["download_location"]
+	download_link = s.get(download_location,
+						headers={"Authorization": f"Client-ID {config['unsplash_client_id']}"})
+	download_link_data = download_link.json()
+	print(download_link_data)
+	r = s.get(f"{download_link_data['url']}&w=1080", stream=True)
 	if r.status_code == 200:
 		i = io.BytesIO()
 		for chunk in r:
@@ -64,4 +69,4 @@ final.save('quote.png')
 with open('quote.png', 'rb') as media:
 	response = api.upload_media(media=media)
 	api.update_status(media_ids=[response["media_id"]],
-					status=f"Hello, here's my daily tweet #quote by {author}. Quote by: {link}. Photo by {photographer}")
+					status=f"Hello, here's my daily tweet #quote by {author}. Quote by: {link}. Photo by {photographer} on {unsplash_website}")
